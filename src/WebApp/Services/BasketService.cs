@@ -1,6 +1,9 @@
 ﻿using eShop.Basket.API.Grpc;
 using GrpcBasketItem = eShop.Basket.API.Grpc.BasketItem;
 using GrpcBasketClient = eShop.Basket.API.Grpc.Basket.BasketClient;
+using System.Diagnostics;
+using Grpc.Core;
+using OpenTelemetry.Instrumentation.GrpcNetClient;
 
 namespace eShop.WebApp.Services;
 
@@ -8,7 +11,22 @@ public class BasketService(GrpcBasketClient basketClient)
 {
     public async Task<IReadOnlyCollection<BasketQuantity>> GetBasketAsync()
     {
-        var result = await basketClient.GetBasketAsync(new ());
+        var currentActivity = Activity.Current;
+        currentActivity?.AddEvent(new ActivityEvent("GetBasketAsyncCall"));
+
+        var metadata = new Metadata();
+        if (currentActivity != null)
+        {
+            metadata.Add("traceparent", currentActivity.TraceId.ToHexString());
+            if (!string.IsNullOrEmpty(currentActivity.TraceStateString))
+            {
+                metadata.Add("tracestate", currentActivity.TraceStateString);
+            }
+        }
+
+        var result = await basketClient.GetBasketAsync(new());
+        currentActivity?.AddEvent(new ActivityEvent("GetBasketAsyncCallResponse"));
+
         return MapToBasket(result);
     }
 
@@ -19,6 +37,7 @@ public class BasketService(GrpcBasketClient basketClient)
 
     public async Task UpdateBasketAsync(IReadOnlyCollection<BasketQuantity> basket)
     {
+        var currentActivity = Activity.Current;
         var updatePayload = new UpdateBasketRequest();
 
         foreach (var item in basket)
@@ -30,7 +49,16 @@ public class BasketService(GrpcBasketClient basketClient)
             };
             updatePayload.Items.Add(updateItem);
         }
-
+        var metadata = new Metadata();
+        if (currentActivity != null)
+        {
+            metadata.Add("traceparent", currentActivity.TraceId.ToHexString());
+            if (!string.IsNullOrEmpty(currentActivity.TraceStateString))
+            {
+                metadata.Add("tracestate", currentActivity.TraceStateString);
+            }
+        }
+        currentActivity?.AddEvent(new ActivityEvent("UpdateBasketAsyncCall"));
         await basketClient.UpdateBasketAsync(updatePayload);
     }
 
