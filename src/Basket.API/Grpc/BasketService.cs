@@ -2,6 +2,8 @@
 using eShop.Basket.API.Repositories;
 using eShop.Basket.API.Extensions;
 using eShop.Basket.API.Model;
+using System.Security.Cryptography;
+using System.Diagnostics;
 
 namespace eShop.Basket.API.Grpc;
 
@@ -9,19 +11,33 @@ public class BasketService(
     IBasketRepository repository,
     ILogger<BasketService> logger) : Basket.BasketBase
 {
+    private static readonly ActivitySource _activitySource = new("eShop.BasketAPI");
     [AllowAnonymous]
     public override async Task<CustomerBasketResponse> GetBasket(GetBasketRequest request, ServerCallContext context)
     {
+        var traceParent = context.RequestHeaders.GetValue("traceparent");
+        var traceState = context.RequestHeaders.GetValue("tracestate");
+
+        ActivityContext.TryParse(traceParent, traceState, out var activityContext);
+
+        using var activity = _activitySource.StartActivity("AddToCart", ActivityKind.Server, activityContext);
+
+        activity.AddEvent(new ActivityEvent("BasketService.GetBasket"));
+
         var userId = context.GetUserIdentity();
         if (string.IsNullOrEmpty(userId))
         {
             return new();
         }
 
+        activity.SetTag("userId", "HASH_"+HashString(userId));
+
         if (logger.IsEnabled(LogLevel.Debug))
         {
-            logger.LogDebug("Begin GetBasketById call from method {Method} for basket id {Id}", context.Method, userId);
+            logger.LogDebug("Begin GetBasketById call from method {Method} for basket id HASH_{Id}", context.Method, HashString(userId));
         }
+
+        using var databaseActivity = _activitySource.StartActivity("Redis.GetBasket", ActivityKind.Client, activity.Context);
 
         var data = await repository.GetBasketAsync(userId);
 
@@ -35,22 +51,33 @@ public class BasketService(
 
     public override async Task<CustomerBasketResponse> UpdateBasket(UpdateBasketRequest request, ServerCallContext context)
     {
+        var traceParent = context.RequestHeaders.GetValue("traceparent");
+        var traceState = context.RequestHeaders.GetValue("tracestate");
+
+        ActivityContext.TryParse(traceParent, traceState, out var activityContext);
+
+        using var activity = _activitySource.StartActivity("AddToCart", ActivityKind.Server, activityContext);
+
+        activity.AddEvent(new ActivityEvent("BasketService.UpdateBasket"));
+
         var userId = context.GetUserIdentity();
         if (string.IsNullOrEmpty(userId))
         {
             ThrowNotAuthenticated();
         }
 
+        activity.SetTag("userId", "HASH_"+HashString(userId));
+
         if (logger.IsEnabled(LogLevel.Debug))
         {
-            logger.LogDebug("Begin UpdateBasket call from method {Method} for basket id {Id}", context.Method, userId);
+            logger.LogDebug("Begin UpdateBasket call from method {Method} for basket id {Id}", context.Method, "HASH_" + HashString(userId));
         }
 
         var customerBasket = MapToCustomerBasket(userId, request);
         var response = await repository.UpdateBasketAsync(customerBasket);
         if (response is null)
         {
-            ThrowBasketDoesNotExist(userId);
+            ThrowBasketDoesNotExist(userId); //not setting status here because I believe it is set on the other side already
         }
 
         return MapToCustomerBasketResponse(response);
@@ -72,10 +99,11 @@ public class BasketService(
     private static void ThrowNotAuthenticated() => throw new RpcException(new Status(StatusCode.Unauthenticated, "The caller is not authenticated."));
 
     [DoesNotReturn]
-    private static void ThrowBasketDoesNotExist(string userId) => throw new RpcException(new Status(StatusCode.NotFound, $"Basket with buyer id {userId} does not exist"));
+    private static void ThrowBasketDoesNotExist(string userId) => throw new RpcException(new Status(StatusCode.NotFound, $"Basket with buyer id HASH_{HashString(userId)} does not exist"));
 
     private static CustomerBasketResponse MapToCustomerBasketResponse(CustomerBasket customerBasket)
     {
+        var activity= Activity.Current;
         var response = new CustomerBasketResponse();
 
         foreach (var item in customerBasket.Items)
@@ -86,6 +114,9 @@ public class BasketService(
                 Quantity = item.Quantity,
             });
         }
+
+        activity?.SetTag("quantity", response.Items.Count);
+        activity?.SetTag("items",response.Items);
 
         return response;
     }
@@ -107,5 +138,14 @@ public class BasketService(
         }
 
         return response;
+    }
+
+    public static string HashString(string input)
+    {
+        using (SHA256 sha256 = SHA256.Create())
+        {
+            byte[] hashBytes = sha256.ComputeHash(System.Text.Encoding.UTF8.GetBytes(input));
+            return Convert.ToBase64String(hashBytes);
+        }
     }
 }

@@ -1,4 +1,5 @@
-﻿using System.Text.Json.Serialization;
+﻿using System.Diagnostics;
+using System.Text.Json.Serialization;
 using eShop.Basket.API.Model;
 
 namespace eShop.Basket.API.Repositories;
@@ -21,7 +22,7 @@ public class RedisBasketRepository(ILogger<RedisBasketRepository> logger, IConne
     }
 
     public async Task<CustomerBasket> GetBasketAsync(string customerId)
-    {
+    {    
         using var data = await _database.StringGetLeaseAsync(GetBasketKey(customerId));
 
         if (data is null || data.Length == 0)
