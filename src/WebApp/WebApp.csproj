@@ -28,6 +28,7 @@
     <PackageReference Include="Google.Protobuf" />
     <PackageReference Include="Grpc.Net.ClientFactory" />
     <PackageReference Include="Grpc.Tools" PrivateAssets="All" />
+    <PackageReference Include="OpenTelemetry.Exporter.Jaeger" />
   </ItemGroup>
 
   <ItemGroup>
