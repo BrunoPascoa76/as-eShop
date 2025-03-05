@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
 using eShop.WebAppComponents.Catalog;
 using eShop.WebAppComponents.Services;
+using System.Diagnostics;
 
 namespace eShop.WebApp.Services;
 
@@ -12,6 +13,7 @@ public class BasketState(
     OrderingService orderingService,
     AuthenticationStateProvider authenticationStateProvider) : IBasketState
 {
+    private static readonly ActivitySource _activitySource = new ActivitySource("eShop.WebApp");
     private Task<IReadOnlyCollection<BasketItem>>? _cachedBasket;
     private HashSet<BasketStateChangedSubscription> _changeSubscriptions = new();
 
@@ -30,28 +32,51 @@ public class BasketState(
         return subscription;
     }
 
-    public async Task AddAsync(CatalogItem item)
+    public async Task AddAsync(CatalogItem item) // <-- Add item to cart
     {
-        var items = (await FetchBasketItemsAsync()).Select(i => new BasketQuantity(i.ProductId, i.Quantity)).ToList();
-        bool found = false;
-        for (var i = 0; i < items.Count; i++)
-        {
-            var existing = items[i];
-            if (existing.ProductId == item.Id)
+        using var _activity = _activitySource.StartActivity("AddToCart");
+        _activity?.SetTag("itemId", item.Id);
+        _activity?.SetTag("productName", item.Name);
+        _activity?.AddEvent(new ActivityEvent("Submission"));
+
+        try
+        { //these serve only to clearly outline the end of the basket activity
+            using var _basketActivity = _activitySource.StartActivity("AddToCart.BasketUpdate", ActivityKind.Internal, _activity?.Context ?? default);
+
+            var items = (await FetchBasketItemsAsync()).Select(i => new BasketQuantity(i.ProductId, i.Quantity)).ToList();
+
+            _basketActivity?.SetTag("initialBasketSize", items.Count);
+
+            bool found = false;
+            for (var i = 0; i < items.Count; i++)
             {
-                items[i] = existing with { Quantity = existing.Quantity + 1 };
-                found = true;
-                break;
+                var existing = items[i];
+                if (existing.ProductId == item.Id)
+                {
+                    _basketActivity?.SetTag("ExistingQuantity", items[i].Quantity);
+                    items[i] = existing with { Quantity = existing.Quantity + 1 };
+                    found = true;
+                    break;
+                }
             }
-        }
 
-        if (!found)
+            if (!found)
+            {
+                _basketActivity?.SetTag("ExistingQuantity", 0);
+                items.Add(new BasketQuantity(item.Id, 1));
+            }
+
+            _cachedBasket = null;
+
+
+            await basketService.UpdateBasketAsync(items);
+
+            _basketActivity?.SetTag("newBasketSize", items.Count);
+        }
+        catch (Exception ex)
         {
-            items.Add(new BasketQuantity(item.Id, 1));
+            _activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
         }
-
-        _cachedBasket = null;
-        await basketService.UpdateBasketAsync(items);
         await NotifyChangeSubscribersAsync();
     }
 

@@ -16,7 +16,7 @@ builder.Services.AddOpenTelemetry()
     .WithTracing(tracing =>tracing
         .AddAspNetCoreInstrumentation()
         .AddHttpClientInstrumentation()
-        .AddSource("eShop.WebApp")
+        .AddSource("eShop.AddToCart")
         .AddJaegerExporter(options=>{
             options.AgentHost = "localhost";
             options.AgentPort = 6831;
