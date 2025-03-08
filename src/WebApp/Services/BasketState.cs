@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Components.Authorization;
 using eShop.WebAppComponents.Catalog;
 using eShop.WebAppComponents.Services;
 using System.Diagnostics;
+using System.Diagnostics.Metrics;
 
 namespace eShop.WebApp.Services;
 
@@ -13,7 +14,8 @@ public class BasketState(
     OrderingService orderingService,
     AuthenticationStateProvider authenticationStateProvider) : IBasketState
 {
-    private static readonly ActivitySource _activitySource = new ActivitySource("eShop.WebApp");
+    private readonly Meter _meter = new("eShop.AddToCart");
+    private static readonly ActivitySource _activitySource = new ActivitySource("eShop.AddToCart");
     private Task<IReadOnlyCollection<BasketItem>>? _cachedBasket;
     private HashSet<BasketStateChangedSubscription> _changeSubscriptions = new();
 
@@ -34,8 +36,13 @@ public class BasketState(
 
     public async Task AddAsync(CatalogItem item) // <-- Add item to cart
     {
+        Counter<long> _errorCounter = _meter.CreateCounter<long>("eshop.AddToCart.errors","number of 'add to cart' errors");
+        Counter<long> _itemCounter = _meter.CreateCounter<long>("eshop.AddToCart.item","number of times an item was added");
+
+        _itemCounter.Add(1,new KeyValuePair<string, object?>("item_id",item.Id.ToString()));
+        
         using var _activity = _activitySource.StartActivity("AddToCart");
-        _activity?.SetTag("itemId", item.Id);
+        _activity?.SetTag("itemId", item.Id.ToString());
         _activity?.SetTag("productName", item.Name);
         _activity?.AddEvent(new ActivityEvent("Submission"));
 
@@ -76,6 +83,7 @@ public class BasketState(
         catch (Exception ex)
         {
             _activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
+            _errorCounter.Add(1);
         }
         await NotifyChangeSubscribersAsync();
     }

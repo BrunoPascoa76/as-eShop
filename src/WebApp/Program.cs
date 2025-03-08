@@ -2,6 +2,7 @@
 using eShop.ServiceDefaults;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
+using OpenTelemetry.Metrics;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -16,14 +17,22 @@ builder.Services.AddOpenTelemetry()
     .WithTracing(tracing =>tracing
         .AddAspNetCoreInstrumentation()
         .AddHttpClientInstrumentation()
+        .AddGrpcClientInstrumentation()
         .AddSource("eShop.AddToCart")
         .AddJaegerExporter(options=>{
             options.AgentHost = "localhost";
             options.AgentPort = 6831;
         })
+    ).WithMetrics(metrics => metrics
+        .AddAspNetCoreInstrumentation()
+        .AddHttpClientInstrumentation()
+        .AddMeter("eShop.AddToCart")
+        .AddPrometheusExporter()
     );
 
 var app = builder.Build();
+
+app.UseOpenTelemetryPrometheusScrapingEndpoint();
 
 app.MapDefaultEndpoints();
 
