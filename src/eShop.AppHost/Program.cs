@@ -26,7 +26,7 @@ var jaeger = builder.AddContainer("jaeger", "jaegertracing/all-in-one:latest")
 
 builder.AddContainer("grafana", "grafana/grafana:latest")
     .WithHttpEndpoint(3000, 3000, "grafana")
-    .WithBindMount("./monitoring/grafana-datasource.yaml", "/etc/grafana/provisioning/datasources/datasource.yaml")
+    .WithBindMount("./monitoring/grafana_datasource.yml", "/etc/grafana/provisioning/datasources/datasource.yml")
     .WithLifetime(ContainerLifetime.Persistent)
     .WaitFor(prometheus)
     .WaitFor(jaeger);
