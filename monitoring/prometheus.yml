@@ -1,0 +1,15 @@
+global:
+  scrape_interval:     15s
+
+scrape_configs:
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+  
+  - job_name: 'eshop.webapp'
+    static_configs:
+      - targets: ['webapp:9464']
+
+  - job_name: 'jaeger'
+    static_configs:
+      - targets: ['jaeger:14268']

@@ -20,14 +20,18 @@ builder.Services.AddOpenTelemetry()
         .AddGrpcClientInstrumentation()
         .AddSource("eShop.AddToCart")
         .AddJaegerExporter(options=>{
-            options.AgentHost = "localhost";
+            options.AgentHost = "jaeger";
             options.AgentPort = 6831;
         })
     ).WithMetrics(metrics => metrics
         .AddAspNetCoreInstrumentation()
         .AddHttpClientInstrumentation()
         .AddMeter("eShop.AddToCart")
-        .AddPrometheusExporter()
+        .AddPrometheusExporter(options=>{
+            options.StartHttpListener = true;
+            options.HttpListenerHost = "prometheus";
+            options.HttpListenerPort = 9464;
+        })
     );
 
 var app = builder.Build();
