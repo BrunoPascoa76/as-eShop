@@ -4,10 +4,9 @@ global:
 scrape_configs:
   - job_name: 'webApp'
     static_configs:
-      - targets: ['host.docker.internal:5045','webapp:5045','webapp:80','webapp:38101','host.docker.internal:38101','localhost:38101']
-  - job_name: 'Basket'
+      - targets: ['localhost:5045']
+- job_name: 'basket.API'
     static_configs:
-      - targets: ['host.docker.internal:5221','basket-api:5221','basket-api:80','basket-api:43213','host.docker.internal:43213','host.docker.internal:5045','host.docker.internal:16888']
-  - job_name: 'Ordering'
-    static_configs:
-      - targets: ['host.docker.internal:16888','localhost:19888','ordering-api:19888','ordering-api:80','ordering-api:43213','host.docker.internal:43213']
+      - targets: ['localhost:5221']
+      
+  
