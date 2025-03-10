@@ -36,11 +36,11 @@ public class BasketState(
 
     public async Task AddAsync(CatalogItem item) // <-- Add item to cart
     {
-        Counter<long> _errorCounter = _meter.CreateCounter<long>("eshop.AddToCart.errors","number of 'add to cart' errors");
-        Counter<long> _itemCounter = _meter.CreateCounter<long>("eshop.AddToCart.item","number of times an item was added");
+        Counter<long> _errorCounter = _meter.CreateCounter<long>("eshop.AddToCart.errors", "number of 'add to cart' errors");
+        Counter<long> _itemCounter = _meter.CreateCounter<long>("eshop.AddToCart.item", "number of times an item was added");
 
-        _itemCounter.Add(1,new KeyValuePair<string, object?>("item_id",item.Id.ToString()));
-        
+        _itemCounter.Add(1, new KeyValuePair<string, object?>("item_id", item.Id.ToString()));
+
         using var _activity = _activitySource.StartActivity("AddToCart");
         _activity?.SetTag("itemId", item.Id.ToString());
         _activity?.SetTag("productName", item.Name);
@@ -153,31 +153,40 @@ public class BasketState(
 
         async Task<IReadOnlyCollection<BasketItem>> FetchCoreAsync()
         {
-            var quantities = await basketService.GetBasketAsync();
-            if (quantities.Count == 0)
-            {
-                return [];
-            }
+            var parentActivity = Activity.Current;
 
-            // Get details for the items in the basket
-            var basketItems = new List<BasketItem>();
-            var productIds = quantities.Select(row => row.ProductId);
-            var catalogItems = (await catalogService.GetCatalogItems(productIds)).ToDictionary(k => k.Id, v => v);
-            foreach (var item in quantities)
+            using (var activity = parentActivity == null ? _activitySource.StartActivity("AddToCart.FetchBasketItems") : _activitySource.StartActivity("AddToCart.BasketUpdate", ActivityKind.Internal, parentActivity?.Context ?? default))
             {
-                var catalogItem = catalogItems[item.ProductId];
-                var orderItem = new BasketItem
+                var quantityMetric=_meter.CreateHistogram<long>("eshop.AddToCart.FetchedItems", "number of items fetched");
+
+                var quantities = await basketService.GetBasketAsync();
+                if (quantities.Count == 0)
                 {
-                    Id = Guid.NewGuid().ToString(), // TODO: this value is meaningless, use ProductId instead.
-                    ProductId = catalogItem.Id,
-                    ProductName = catalogItem.Name,
-                    UnitPrice = catalogItem.Price,
-                    Quantity = item.Quantity,
-                };
-                basketItems.Add(orderItem);
-            }
+                    quantityMetric.Record(0);
+                    return [];
+                }
 
-            return basketItems;
+                // Get details for the items in the basket
+                var basketItems = new List<BasketItem>();
+                var productIds = quantities.Select(row => row.ProductId);
+                var catalogItems = (await catalogService.GetCatalogItems(productIds)).ToDictionary(k => k.Id, v => v);
+                foreach (var item in quantities)
+                {
+                    var catalogItem = catalogItems[item.ProductId];
+                    var orderItem = new BasketItem
+                    {
+                        Id = Guid.NewGuid().ToString(), // TODO: this value is meaningless, use ProductId instead.
+                        ProductId = catalogItem.Id,
+                        ProductName = catalogItem.Name,
+                        UnitPrice = catalogItem.Price,
+                        Quantity = item.Quantity,
+                    };
+                    basketItems.Add(orderItem);
+                }
+
+                quantityMetric.Record(basketItems.Count);
+                return basketItems;
+            }
         }
     }
 
