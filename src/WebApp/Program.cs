@@ -12,28 +12,7 @@ builder.Services.AddRazorComponents().AddInteractiveServerComponents();
 
 builder.AddApplicationServices();
 
-builder.Services.AddOpenTelemetry()
-    .ConfigureResource(resource=>resource.AddService("eShop.WebApp"))
-    .WithTracing(tracing =>tracing
-        .AddAspNetCoreInstrumentation()
-        .AddHttpClientInstrumentation()
-        .AddGrpcClientInstrumentation()
-        .AddSource("eShop.AddToCart")
-        .AddJaegerExporter(options=>{
-            options.AgentHost = "jaeger";
-            options.AgentPort = 6831;
-        })
-    ).WithMetrics(metrics => metrics
-        .AddAspNetCoreInstrumentation()
-        .AddHttpClientInstrumentation()
-        .AddRuntimeInstrumentation()
-        .AddMeter("eShop.AddToCart")
-        .AddPrometheusExporter()
-    );
-
 var app = builder.Build();
-
-app.UseOpenTelemetryPrometheusScrapingEndpoint();
 
 app.MapDefaultEndpoints();
 
