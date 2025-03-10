@@ -1,10 +1,38 @@
-﻿using eShop.AppHost;
+﻿using System.Net.Sockets;
+using Aspire.Hosting;
+using eShop.AppHost;
 
 var builder = DistributedApplication.CreateBuilder(args);
 
 builder.AddForwardedHeaders();
 
-builder.addNetwork("monitoring"); //so they can export properly
+//setup monitoring
+var prometheus = builder.AddContainer("prometheus", "prom/prometheus:latest")
+    .WithBindMount("./monitoring/prometheus.yml", "/etc/prometheus/prometheus.yml")
+    .WithHttpEndpoint(9090, 9090, "prometheus")
+    .WithLifetime(ContainerLifetime.Persistent);
+
+var jaeger = builder.AddContainer("jaeger", "jaegertracing/all-in-one:latest")
+    .WithHttpEndpoint(16686, 16686, "jaeger-ui")
+    .WithHttpEndpoint(14268, 14268, "jaeger-collector")
+    .WithEndpoint("jaeger-agent", endpoint =>
+    {
+       endpoint.Port = 6831;
+       endpoint.TargetPort = 6831;
+       endpoint.Protocol = ProtocolType.Udp;
+       endpoint.UriScheme = "udp";
+    })
+    .WithLifetime(ContainerLifetime.Persistent);
+
+builder.AddContainer("grafana", "grafana/grafana:latest")
+    .WithHttpEndpoint(3000, 3000, "grafana")
+    .WithBindMount("./monitoring/grafana-datasource.yaml", "/etc/grafana/provisioning/datasources/datasource.yaml")
+    .WithLifetime(ContainerLifetime.Persistent)
+    .WaitFor(prometheus)
+    .WaitFor(jaeger);
+
+
+
 
 var redis = builder.AddRedis("redis");
 var rabbitMq = builder.AddRabbitMQ("eventbus")

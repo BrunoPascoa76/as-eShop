@@ -26,12 +26,9 @@ builder.Services.AddOpenTelemetry()
     ).WithMetrics(metrics => metrics
         .AddAspNetCoreInstrumentation()
         .AddHttpClientInstrumentation()
+        .AddRuntimeInstrumentation()
         .AddMeter("eShop.AddToCart")
-        .AddPrometheusExporter(options=>{
-            options.StartHttpListener = true;
-            options.HttpListenerHost = "prometheus";
-            options.HttpListenerPort = 9464;
-        })
+        .AddPrometheusExporter()
     );
 
 var app = builder.Build();
