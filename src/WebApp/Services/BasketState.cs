@@ -41,7 +41,7 @@ public class BasketState(
 
         _itemCounter.Add(1, new KeyValuePair<string, object?>("item_id", item.Id.ToString()));
 
-        using var _activity = _activitySource.StartActivity("AddToCart");
+        using var _activity = Activity.Current ??_activitySource.StartActivity("AddToCart");
         _activity?.SetTag("itemId", item.Id.ToString());
         _activity?.SetTag("productName", item.Name);
         _activity?.AddEvent(new ActivityEvent("Submission"));
