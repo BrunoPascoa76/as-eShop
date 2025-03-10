@@ -5,27 +5,23 @@
     var builder = DistributedApplication.CreateBuilder(args);
 
     builder.AddForwardedHeaders();
-    //setup monitoring
-
-    var otelCollector = builder.AddOpenTelemetryCollector(
-        name: "otel-collector",
-        configFileLocation: "./monitoring/otel-collector-config.yml",
-        version: "latest"
-    );
-
-
-    var prometheus = builder.AddContainer("prometheus", "prom/prometheus:latest")
-        .WithBindMount("./monitoring/prometheus.yml", "/etc/prometheus/prometheus.yml")
-        .WithHttpEndpoint(9090, 9090, "prometheus")
-        .WaitFor(otelCollector)
-        .WithLifetime(ContainerLifetime.Persistent);
-
-    builder.AddContainer("grafana", "grafana/grafana:latest")
-        .WithHttpEndpoint(3000, 3000, "grafana")
-        .WithBindMount("./monitoring/grafana_datasource.yml", "/etc/grafana/provisioning/datasources/datasource.yml")
-        .WithLifetime(ContainerLifetime.Persistent)
-        .WaitFor(prometheus);
     
+    var jaeger = builder.AddContainer("jaeger","jaegertracing/all-in-one:latest")
+        .WithHttpEndpoint(16686, 16686, "ui")        // Jaeger UI
+        .WithHttpEndpoint(14268, 14268, "api")      // HTTP spans ingestion
+        .WithHttpEndpoint(9411,9411,"zipkin")        // Zipkin
+        .WithEnvironment("COLLECTOR_ZIPKIN_HTTP_PORT", "9411")
+        .WithEnvironment("COLLECTOR_OLTP_ENABLED", "true")
+        .WithEndpoint("udp-1",endpoint=>{
+            endpoint.Port = 5775;
+            endpoint.TargetPort = 5775;
+            endpoint.Protocol = ProtocolType.Udp;
+        })
+        .WithEndpoint("udp-2",endpoint=>{
+            endpoint.Port = 6831;
+            endpoint.TargetPort = 6831;
+            endpoint.Protocol = ProtocolType.Udp;
+        });
 
     var redis = builder.AddRedis("redis");
     var rabbitMq = builder.AddRabbitMQ("eventbus")
@@ -52,14 +48,13 @@
     var basketApi = builder.AddProject<Projects.Basket_API>("basket-api")
         .WithReference(redis)
         .WithReference(rabbitMq).WaitFor(rabbitMq)
-        .WithEnvironment("Identity__Url", identityEndpoint)
-        .WaitFor(otelCollector).WithEnvironment("OTEL_EXPORTER_OTLP_ENDPOINT", "http://otel-collector:4317");
+        .WithExternalHttpEndpoints()
+        .WithEnvironment("Identity__Url", identityEndpoint);
     redis.WithParentRelationship(basketApi);
 
     var catalogApi = builder.AddProject<Projects.Catalog_API>("catalog-api")
         .WithReference(rabbitMq).WaitFor(rabbitMq)
-        .WithReference(catalogDb)
-        .WaitFor(otelCollector).WithEnvironment("OTEL_EXPORTER_OTLP_ENDPOINT", "http://otel-collector:4317");
+        .WithReference(catalogDb);
 
     var orderingApi = builder.AddProject<Projects.Ordering_API>("ordering-api")
         .WithReference(rabbitMq).WaitFor(rabbitMq)
@@ -98,8 +93,9 @@
         .WithReference(catalogApi)
         .WithReference(orderingApi)
         .WithReference(rabbitMq).WaitFor(rabbitMq)
+        .WithExternalHttpEndpoints()
         .WithEnvironment("IdentityUrl", identityEndpoint)
-        .WaitFor(otelCollector).WithEnvironment("OTEL_EXPORTER_OTLP_ENDPOINT", "http://otel-collector:4317");
+        .WaitFor(jaeger);
 
     // set to true if you want to use OpenAI
     bool useOpenAI = false;

@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Builder;
+﻿using System.Reflection;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
@@ -7,6 +8,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using OpenTelemetry.Logs;
 using OpenTelemetry.Metrics;
+using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 
 namespace eShop.ServiceDefaults;
@@ -62,21 +64,24 @@ public static partial class Extensions
                     .AddHttpClientInstrumentation()
                     .AddRuntimeInstrumentation()
                     .AddMeter("eShop.*")
-                    .AddMeter("Experimental.Microsoft.Extensions.AI");
+                    .AddMeter("Experimental.Microsoft.Extensions.AI")
+                    .AddPrometheusExporter();
             })
             .WithTracing(tracing =>
             {
-                if (builder.Environment.IsDevelopment())
-                {
-                    // We want to view all traces in development
-                    tracing.SetSampler(new AlwaysOnSampler());
-                }
+                tracing.SetSampler(new AlwaysOnSampler());
+
+                tracing.SetResourceBuilder(ResourceBuilder.CreateDefault().AddService(builder.Environment.ApplicationName));
 
                 tracing.AddAspNetCoreInstrumentation()
                     .AddGrpcClientInstrumentation()
                     .AddHttpClientInstrumentation()
                     .AddSource("eShop.*")
-                    .AddSource("Experimental.Microsoft.Extensions.AI");                    
+                    .AddSource("Experimental.Microsoft.Extensions.AI")
+                    .AddOtlpExporter(options =>
+                    {
+                        options.Endpoint = new Uri("http://localhost:4317");
+                    });             
             });
 
         builder.AddOpenTelemetryExporters();
@@ -110,7 +115,7 @@ public static partial class Extensions
     public static WebApplication MapDefaultEndpoints(this WebApplication app)
     {
         // Uncomment the following line to enable the Prometheus endpoint (requires the OpenTelemetry.Exporter.Prometheus.AspNetCore package)
-        // app.MapPrometheusScrapingEndpoint();
+        app.MapPrometheusScrapingEndpoint();
 
         // Adding health checks endpoints to applications in non-development environments has security implications.
         // See https://aka.ms/dotnet/aspire/healthchecks for details before enabling these endpoints in non-development environments.
