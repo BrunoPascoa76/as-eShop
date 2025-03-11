@@ -1,0 +1,72 @@
+{
+  "id": "36b22a87-a3cb-4e4c-92de-3a02a62a86c7",
+  "version": "2.0",
+  "name": "as_load_test",
+  "url": "https://localhost:7298",
+  "tests": [{
+    "id": "2a3980df-3aa7-401d-8e7c-47cc7e8e55c9",
+    "name": "add to cart",
+    "commands": [{
+      "id": "3caa0cb9-0061-42af-a2a9-7cc8cfaec058",
+      "comment": "",
+      "command": "times",
+      "target": "10000",
+      "targets": [],
+      "value": ""
+    }, {
+      "id": "d2c0964c-7c53-4c6c-ae44-68259e7c27c8",
+      "comment": "",
+      "command": "executeScript",
+      "target": "return Math.floor(Math.random() * 100) + 1;",
+      "targets": [],
+      "value": "randomNumber"
+    }, {
+      "id": "c275ae39-f710-403e-8b0f-91355bb6a01f",
+      "comment": "",
+      "command": "open",
+      "target": "/item/${randomNumber}",
+      "targets": [],
+      "value": ""
+    }, {
+      "id": "db906e11-961e-4b75-8540-b7dbfdf7646d",
+      "comment": "",
+      "command": "click",
+      "target": "css=.item-details > img",
+      "targets": [
+        ["css=.item-details > img", "css:finder"],
+        ["xpath=//img[@alt='Expedition 2022 Goggles']", "xpath:img"],
+        ["xpath=//div[2]/img", "xpath:position"]
+      ],
+      "value": ""
+    }, {
+      "id": "d890bd81-2c79-422e-ab09-7d6cfd5b0656",
+      "comment": "",
+      "command": "click",
+      "target": "css=button:nth-child(4)",
+      "targets": [
+        ["css=button:nth-child(4)", "css:finder"],
+        ["xpath=(//button[@type='submit'])[2]", "xpath:attributes"],
+        ["xpath=//div[2]/div/form/button", "xpath:position"],
+        ["xpath=//button[contains(.,'Add to shopping bag')]", "xpath:innerText"]
+      ],
+      "value": ""
+    }, {
+      "id": "0a06a747-43c3-490d-9756-ecbfc9046ea5",
+      "comment": "",
+      "command": "end",
+      "target": "",
+      "targets": [],
+      "value": ""
+    }]
+  }],
+  "suites": [{
+    "id": "0f118d89-20b5-427b-8d08-52c744fb6df5",
+    "name": "Default Suite",
+    "persistSession": false,
+    "parallel": false,
+    "timeout": 300,
+    "tests": ["2a3980df-3aa7-401d-8e7c-47cc7e8e55c9"]
+  }],
+  "urls": ["https://localhost:7298/"],
+  "plugins": []
+}
