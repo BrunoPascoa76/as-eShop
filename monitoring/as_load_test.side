@@ -17,7 +17,7 @@
       "id": "d2c0964c-7c53-4c6c-ae44-68259e7c27c8",
       "comment": "",
       "command": "executeScript",
-      "target": "return Math.floor(Math.random() * 100) + 1;",
+      "target": "return Math.floor(Math.random() * 101) + 1;",
       "targets": [],
       "value": "randomNumber"
     }, {
