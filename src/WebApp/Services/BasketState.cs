@@ -36,8 +36,8 @@ public class BasketState(
 
     public async Task AddAsync(CatalogItem item) // <-- Add item to cart
     {
-        Counter<long> _errorCounter = _meter.CreateCounter<long>("eshop.AddToCart.errors", "number of 'add to cart' errors");
-        Counter<long> _itemCounter = _meter.CreateCounter<long>("eshop.AddToCart.item", "number of times an item was added");
+        Counter<long> _errorCounter = _meter.CreateCounter<long>("eshop.AddToCart.errors");
+        Counter<long> _itemCounter = _meter.CreateCounter<long>("eshop.AddToCart.item");
 
         _itemCounter.Add(1, new KeyValuePair<string, object?>("item_id", item.Id.ToString()));
 
@@ -157,7 +157,7 @@ public class BasketState(
 
             using (var activity = parentActivity == null ? _activitySource.StartActivity("AddToCart.FetchBasketItems") : _activitySource.StartActivity("AddToCart.BasketUpdate", ActivityKind.Internal, parentActivity?.Context ?? default))
             {
-                var quantityMetric=_meter.CreateHistogram<long>("eshop.AddToCart.FetchedItems", "number of items fetched");
+                var quantityMetric=_meter.CreateHistogram<long>("eshop.AddToCart.FetchedItems");
 
                 var quantities = await basketService.GetBasketAsync();
                 if (quantities.Count == 0)

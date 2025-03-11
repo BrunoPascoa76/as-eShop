@@ -77,11 +77,7 @@ public static partial class Extensions
                     .AddGrpcClientInstrumentation()
                     .AddHttpClientInstrumentation()
                     .AddSource("eShop.*")
-                    .AddSource("Experimental.Microsoft.Extensions.AI")
-                    .AddOtlpExporter(options =>
-                    {
-                        options.Endpoint = new Uri("http://localhost:4317");
-                    });             
+                    .AddSource("Experimental.Microsoft.Extensions.AI");      
             });
 
         builder.AddOpenTelemetryExporters();
