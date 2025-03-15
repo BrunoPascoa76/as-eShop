@@ -15,6 +15,6 @@
 
 # Sequence diagram
 
-![Sequence Diagram](sequence_diagram.png)
+![Sequence Diagram](docs/images/sequence_diagram.png)
 
 Note: this project was done on Ubuntu
